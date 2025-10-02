@@ -1,0 +1,2 @@
+0000000000000000000000000000000000000000 424ceaf0b329b981676fede17d182f9a94f16657 Anurag Verma <anuragverma@Anurags-Mac-Mini.local> 1759152227 +0530	commit (initial): Initial commit from Create Next App
+424ceaf0b329b981676fede17d182f9a94f16657 9d7bbe4412d9ad2011703ca1f25f19c68673ced1 Anurag Verma <anuragverma@Anurags-Mac-Mini.local> 1759152381 +0530	commit: chore(web): scaffold Next.js JS app with Tailwind; add theme provider + toggle; install core UI deps

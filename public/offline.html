@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="description" content="ATS Analyzer - You are currently offline" />
+    <title>Offline - ATS Analyzer</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+                'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+                sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .offline-container {
+            text-align: center;
+            max-width: 400px;
+            padding: 2rem;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .offline-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 1.5rem;
+            opacity: 0.8;
+        }
+        
+        .offline-title {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            opacity: 0.9;
+        }
+        
+        .offline-message {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin-bottom: 2rem;
+            opacity: 0.8;
+        }
+        
+        .retry-button {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 50px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .retry-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        .features-list {
+            text-align: left;
+            margin-top: 2rem;
+            opacity: 0.7;
+        }
+        
+        .features-list h3 {
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+        
+        .features-list ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .features-list li {
+            margin-bottom: 0.5rem;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+        
+        .features-list li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #4ade80;
+        }
+    </style>
+</head>
+<body>
+    <div class="offline-container">
+        <svg class="offline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 12a11.05 11.05 0 0 0-22 0zm-5 7a3 3 0 0 0-6 0z"></path>
+            <line x1="8.5" y1="14" x2="15.5" y2="14"></line>
+        </svg>
+        
+        <h1 class="offline-title">You're Offline</h1>
+        
+        <p class="offline-message">
+            It looks like you've lost your internet connection. Don't worry, you can still access some features of the ATS Analyzer.
+        </p>
+        
+        <a href="/" class="retry-button" onclick="window.location.reload()">
+            Try Again
+        </a>
+        
+        <div class="features-list">
+            <h3>Available Offline:</h3>
+            <ul>
+                <li>View previously analyzed resumes</li>
+                <li>Access cached job templates</li>
+                <li>Browse saved analysis results</li>
+                <li>Review optimization tips</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Auto-retry when back online
+        window.addEventListener('online', () => {
+            window.location.href = '/';
+        });
+        
+        // Check for service worker updates
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.ready.then((registration) => {
+                registration.addEventListener('updatefound', () => {
+                    const newWorker = registration.installing;
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'activated') {
+                            window.location.reload();
+                        }
+                    });
+                });
+            });
+        }
+    </script>
+</body>
+</html>

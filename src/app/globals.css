@@ -1,0 +1,120 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  --accent: #2563eb;
+  --muted: #f3f4f6;
+  --border: #e5e7eb;
+  --navbar-bg: rgba(255,255,255,0.70);
+  --navbar-bg-transparent: rgba(255,255,255,0.00);
+  --navbar-shadow: 0 10px 30px rgba(0,0,0,0.12);
+}
+
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --accent: #60a5fa;
+  --muted: #111827;
+  --border: #1f2937;
+  --navbar-bg: rgba(10,10,10,0.70);
+  --navbar-bg-transparent: rgba(0,0,0,0.00);
+  --navbar-shadow: 0 10px 30px rgba(0,0,0,0.40);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-accent: var(--accent);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Prevent browser pull-to-refresh bounce and improve scroll stability */
+html, body {
+  overscroll-behavior-y: none;
+} 
+
+button {
+  cursor: pointer;
+}
+
+/* Ensure in-page anchor navigation accounts for sticky header */
+:where(section, [id]) {
+  scroll-margin-top: 96px;
+}
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Hide scrollbars while maintaining scroll functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* Internet Explorer 10+ */
+  scrollbar-width: none;  /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Safari and Chrome */
+}
+
+/* Remove focus rings globally while maintaining accessibility through other means */
+*:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+*:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Remove default button focus styles */
+button:focus,
+button:focus-visible,
+input:focus,
+input:focus-visible,
+textarea:focus,
+textarea:focus-visible,
+select:focus,
+select:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: inherit !important;
+}
+
+/* Remove any residual Tailwind focus styles */
+.focus\:ring-2:focus,
+.focus\:ring-4:focus,
+.focus\:ring:focus {
+  box-shadow: none !important;
+}
+
+/* Ensure buttons maintain their original styling on focus */
+button:focus {
+  transform: none;
+  filter: none;
+}
+
+/* Remove focus styles from links */
+a:focus,
+a:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
