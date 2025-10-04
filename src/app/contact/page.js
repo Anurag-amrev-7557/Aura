@@ -17,8 +17,12 @@ export default function ContactPage() {
   return (
     <div className="min-h-screen relative">
       <main className="mx-auto max-w-2xl px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
-        <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">Contact</h1>
-        <p className="mt-3 text-[var(--foreground)]/70">Questions, feedback, or partnership inquiries—drop us a note.</p>
+        <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">
+          Contact
+        </h1>
+        <p className="mt-3 text-[var(--foreground)]/70">
+          Questions, feedback, or partnership inquiries—drop us a note.
+        </p>
 
         <form onSubmit={onSubmit} className="mt-8 space-y-4">
           <input
@@ -45,14 +49,26 @@ export default function ContactPage() {
             required
           />
           <div className="flex items-center justify-between">
-            <div className="text-xs text-[var(--foreground)]/60">Or email us directly at <a className="underline" href="mailto:hello@example.com">hello@example.com</a></div>
-            <button type="submit" className="rounded-full bg-[var(--accent)] text-white px-6 py-3 text-sm shadow-[0_6px_24px_rgba(0,0,0,0.20)]">Send</button>
+            <div className="text-xs text-[var(--foreground)]/60">
+              Or email us directly at{" "}
+              <a className="underline" href="mailto:hello@example.com">
+                hello@example.com
+              </a>
+            </div>
+            <button
+              type="submit"
+              className="rounded-full bg-[var(--accent)] text-white px-6 py-3 text-sm shadow-[0_6px_24px_rgba(0,0,0,0.20)]"
+            >
+              Send
+            </button>
           </div>
-          {sent ? <div className="text-sm text-[var(--foreground)]/70">Thanks! Your email client should have opened a draft.</div> : null}
+          {sent ? (
+            <div className="text-sm text-[var(--foreground)]/70">
+              Thanks! Your email client should have opened a draft.
+            </div>
+          ) : null}
         </form>
       </main>
     </div>
   );
 }
-
-

@@ -1,292 +1,244 @@
-export const runtime = "nodejs";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { NextResponse } from "next/server";
 
-async function callGemini(
-  prompt,
-  apiKey,
-  { responseMimeType = "application/json", maxOutputTokens = 3000, retries = 3, baseDelayMs = 400 } = {}
-) {
-  let attempt = 0;
-  let lastErr;
-  while (attempt <= retries) {
-    try {
-      const resp = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: {
-              temperature: 0.3,
-              topP: 0.9,
-              topK: 40,
-              maxOutputTokens,
-              responseMimeType,
-            },
-          }),
-        }
-      );
-      if (!resp.ok) {
-        const status = resp.status;
-        const t = await resp.text().catch(() => "");
-        // Retry on transient 429/503
-        if ((status === 429 || status === 503) && attempt < retries) {
-          const jitter = Math.floor(Math.random() * 200);
-          const delay = baseDelayMs * Math.pow(2, attempt) + jitter;
-          await new Promise((r) => setTimeout(r, delay));
-          attempt++;
-          continue;
-        }
-        throw new Error(`Gemini API error: ${status} - ${t}`);
-      }
-      const data = await resp.json();
-      const text = (data?.candidates?.[0]?.content?.parts || [])
-        .map((p) => p?.text)
-        .filter(Boolean)
-        .join("\n");
-      return text || "";
-    } catch (e) {
-      lastErr = e;
-      // Network failures: backoff retry
-      if (attempt < retries) {
-        const jitter = Math.floor(Math.random() * 200);
-        const delay = baseDelayMs * Math.pow(2, attempt) + jitter;
-        await new Promise((r) => setTimeout(r, delay));
-        attempt++;
-        continue;
-      }
-      break;
-    }
-  }
-  throw lastErr || new Error("Gemini call failed");
+// Initialize Gemini API
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+// Helper function to convert file to generative part with streaming
+async function fileToGenerativePart(file) {
+  const bytes = await file.arrayBuffer();
+  const buffer = Buffer.from(bytes);
+  const base64 = buffer.toString("base64");
+
+  return {
+    inlineData: {
+      data: base64,
+      mimeType: file.type,
+    },
+  };
 }
 
-// Robust JSON extraction and tolerant parsing
-function extractJsonSubstring(input) {
-  if (!input || typeof input !== "string") return null;
-  const fenced = input.match(/```json[\s\S]*?```|```[\s\S]*?```/i);
-  let src = fenced ? fenced[0].replace(/```json|```/gi, "").trim() : input.trim();
-  let start = src.indexOf("{");
-  if (start === -1) return null;
-  let depth = 0;
-  let inStr = false;
-  let esc = false;
-  for (let i = start; i < src.length; i++) {
-    const ch = src[i];
-    if (inStr) {
-      if (esc) { esc = false; }
-      else if (ch === "\\") { esc = true; }
-      else if (ch === '"') { inStr = false; }
-    } else {
-      if (ch === '"') inStr = true;
-      else if (ch === '{') depth++;
-      else if (ch === '}') {
-        depth--;
-        if (depth === 0) {
-          return src.slice(start, i + 1);
-        }
-      }
-    }
-  }
-  if (depth > 0) return src.slice(start) + "}".repeat(depth);
-  return null;
-}
-
-function parseJsonLoose(text) {
-  if (!text) return {};
-  const candidate = extractJsonSubstring(text) || text;
-  const cleaned = candidate
-    .replace(/^\uFEFF/, "")
-    .replace(/,\s*([}\]])/g, "$1");
-  try {
-    return JSON.parse(cleaned);
-  } catch (_) {
-    const first = cleaned.indexOf("{");
-    const last = cleaned.lastIndexOf("}");
-    if (first !== -1 && last !== -1 && last > first) {
-      const slice = cleaned.slice(first, last + 1);
-      try { return JSON.parse(slice); } catch {}
-    }
-  }
-  return {};
-}
-
-function normalizeArray(value) {
-  if (Array.isArray(value)) return value;
-  if (typeof value === "string" && value.trim()) return value.split(/\s*,\s*/);
-  return [];
-}
-
-function extractEmail(text) {
-  const m = String(text || "").match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
-  return m ? m[0] : "";
-}
-
-function extractPhone(text) {
-  const m = String(text || "").match(/\+?[0-9][0-9\-()\s]{6,}/);
-  return m ? m[0].trim() : "";
+// Helper function to compress/optimize file if needed
+async function optimizeFileIfNeeded(file) {
+  // For large PDFs or images, we might want to optimize
+  // For now, just pass through but this is where optimization would go
+  return file;
 }
 
 export async function POST(request) {
   try {
-    const contentType = request.headers.get("content-type") || "";
-    
-    if (!contentType.includes("multipart/form-data")) {
-      return new Response("Expected multipart/form-data", { status: 400 });
-    }
-
     const formData = await request.formData();
     const file = formData.get("file");
-    
-    if (!file || typeof file === "string") {
-      return new Response("Missing file", { status: 400 });
+
+    if (!file) {
+      return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return new Response("Gemini API key not configured", { status: 500 });
+    // Validate file type
+    const allowedTypes = [
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/msword",
+      "image/png",
+      "image/jpeg",
+      "image/jpg",
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      return NextResponse.json(
+        {
+          error:
+            "Unsupported file type. Please upload PDF, DOCX, DOC, or image files.",
+        },
+        { status: 400 },
+      );
     }
 
-    // Convert file to base64 for Gemini API
-    const arrayBuffer = await file.arrayBuffer();
-    const base64 = Buffer.from(arrayBuffer).toString('base64');
-    const mimeType = file.type || 'application/pdf';
+    // Validate file size (10MB limit)
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      return NextResponse.json(
+        { error: "File size exceeds 10MB limit" },
+        { status: 400 },
+      );
+    }
 
-    // Create a stronger prompt for structured extraction
-    const prompt = `You are an expert resume parser. Extract a clean, normalized JSON object following this exact schema. Return ONLY valid JSON (no backticks, no extra text).
+    console.log(
+      `Processing file: ${file.name}, size: ${file.size}, type: ${file.type}`,
+    );
 
+    // Use Gemini Pro for better PDF parsing (Flash can struggle with complex PDFs)
+    const modelName =
+      process.env.GEMINI_STRONG_MODEL || "gemini-1.5-pro-latest";
+    console.log(`Using model: ${modelName}`);
+
+    const model = genAI.getGenerativeModel({
+      model: modelName,
+      generationConfig: {
+        temperature: 0.1, // Lower for more accurate extraction
+        topK: 20,
+        topP: 0.9,
+        maxOutputTokens: 8192, // Much higher for detailed resumes
+        candidateCount: 1,
+      },
+    });
+
+    // Optimize file and convert to generative part in parallel
+    const [optimizedFile] = await Promise.all([optimizeFileIfNeeded(file)]);
+
+    console.log("Converting file to base64...");
+    const filePart = await fileToGenerativePart(optimizedFile);
+    console.log("File converted successfully");
+
+    // More detailed prompt for better extraction
+    const prompt = `You are a professional resume parser. Analyze this resume document and extract all information into a JSON object.
+
+IMPORTANT: Respond with ONLY valid JSON. No explanatory text, no markdown formatting, just the JSON object.
+
+Required JSON structure:
 {
-  "name": "string",
-  "email": "string",
-  "phone": "string",
-  "summary": "string",
-  "skills": ["string"],
+  "name": "Full name from resume",
+  "email": "Email address",
+  "phone": "Phone number",
+  "location": "Location/City",
+  "linkedin": "LinkedIn URL if present, otherwise null",
+  "github": "GitHub URL if present, otherwise null",
+  "website": "Website URL if present, otherwise null",
+  "summary": "Professional summary or objective",
+  "skills": ["skill1", "skill2", "skill3"],
   "experience": [
     {
-      "title": "string",
-      "company": "string",
-      "location": "string",
-      "dates": "string",
-      "description": "string"
+      "title": "Job title",
+      "organization": "Company name",
+      "location": "Job location",
+      "dates": "Employment dates",
+      "description": "Job responsibilities and achievements"
     }
   ],
   "education": [
     {
-      "degree": "string",
-      "institution": "string",
-      "dates": "string",
-      "location": "string"
+      "degree": "Degree name",
+      "field": "Field of study",
+      "institution": "University/School name",
+      "location": "School location",
+      "dates": "Dates attended",
+      "gpa": "GPA if mentioned, otherwise null"
     }
   ],
+  "certifications": ["cert1", "cert2"],
   "projects": [
     {
-      "name": "string",
-      "description": "string",
-      "technologies": ["string"]
+      "name": "Project name",
+      "description": "Project description",
+      "technologies": ["tech1", "tech2"],
+      "link": "Project URL if available, otherwise null"
     }
   ],
-  "certifications": ["string"],
-  "languages": ["string"],
-  "rawText": "string"
+  "languages": ["language1", "language2"],
+  "awards": ["award1", "award2"]
 }
 
-Normalization rules:
-- Trim all strings; empty strings should be omitted or set to "".
-- Ensure arrays are arrays; if a single value is present, wrap in an array.
-- Prefer ISO-like date strings when possible.
-- Preserve bullet content in experience.description.
-- Include the full plain text in rawText.
-`;
+Extract all available information from the resume. Use null for missing single values, [] for missing arrays.`;
 
-    // Call Gemini API with the PDF file
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{
-            role: "user",
-            parts: [
-              { text: prompt },
-              {
-                inline_data: {
-                  mime_type: mimeType,
-                  data: base64
-                }
-              }
-            ]
-          }],
-          generationConfig: {
-            temperature: 0.3,
-            topP: 0.9,
-            topK: 40,
-            maxOutputTokens: 4000,
-            responseMimeType: "application/json",
-          },
-        }),
+    console.log("Sending request to Gemini API...");
+
+    // Generate content with extended timeout for complex PDFs (Pro model is slower but more accurate)
+    const result = await Promise.race([
+      model.generateContent([prompt, filePart]),
+      new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error("Parsing timeout - file too complex")),
+          90000, // 90 seconds for complex PDFs
+        ),
+      ),
+    ]);
+
+    // Check if response exists and has content
+    if (!result || !result.response) {
+      console.error("Empty response from Gemini API");
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Empty response from AI - file may be corrupted or unreadable",
+        },
+        { status: 500 },
+      );
+    }
+
+    const responseText = result.response.text();
+
+    // Check if response text is empty
+    if (!responseText || responseText.trim().length === 0) {
+      console.error("Gemini returned empty text response");
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "AI could not extract text from the file - try a different format or clearer scan",
+        },
+        { status: 500 },
+      );
+    }
+
+    console.log("Gemini response length:", responseText.length);
+    console.log("First 200 chars:", responseText.substring(0, 200));
+
+    // Parse JSON response
+    let parsedData;
+    try {
+      // Clean the response - remove markdown code blocks if present
+      const cleanedText = responseText
+        .replace(/```json\n?/g, "")
+        .replace(/```\n?/g, "")
+        .trim();
+
+      // If still empty after cleaning
+      if (!cleanedText) {
+        throw new Error("Empty response after cleaning");
       }
-    );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Gemini API error:', errorText);
-      return new Response(`Gemini API error: ${response.status} - ${errorText}`, { 
-        status: response.status 
-      });
+      parsedData = JSON.parse(cleanedText);
+    } catch (parseError) {
+      console.error("Failed to parse Gemini response:", parseError.message);
+      console.error("Response text:", responseText.substring(0, 500));
+
+      // Try to extract any structured data even if JSON parsing fails
+      // Return a fallback with raw text
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Could not parse AI response - the file may contain non-standard formatting",
+          rawResponse: responseText.substring(0, 1000),
+          parseError: parseError.message,
+        },
+        { status: 500 },
+      );
     }
 
-    const data = await response.json();
-    const extractedText = (data?.candidates?.[0]?.content?.parts || [])
-      .map((p) => p?.text)
-      .filter(Boolean)
-      .join("\n");
-
-    // Parse robustly and normalize
-    let parsedData = parseJsonLoose(extractedText);
-    if (!parsedData || typeof parsedData !== "object" || Array.isArray(parsedData)) {
-      parsedData = {};
-    }
-
-    const rawText = String(parsedData.rawText || "");
-    const fallbackRawText = rawText || extractedText || "";
-    const normalized = {
-      name: String(parsedData.name || "").trim() || "Unknown",
-      email: String(parsedData.email || extractEmail(fallbackRawText) || "").trim(),
-      phone: String(parsedData.phone || extractPhone(fallbackRawText) || "").trim(),
-      summary: String(parsedData.summary || "").trim(),
-      skills: normalizeArray(parsedData.skills).map((s) => String(s).trim()).filter(Boolean),
-      experience: Array.isArray(parsedData.experience) ? parsedData.experience.map((e) => ({
-        title: String(e?.title || "").trim(),
-        company: String(e?.company || "").trim(),
-        location: String(e?.location || "").trim(),
-        dates: String(e?.dates || "").trim(),
-        description: String(e?.description || "").trim(),
-      })) : [],
-      education: Array.isArray(parsedData.education) ? parsedData.education.map((e) => ({
-        degree: String(e?.degree || "").trim(),
-        institution: String(e?.institution || "").trim(),
-        dates: String(e?.dates || "").trim(),
-        location: String(e?.location || "").trim(),
-      })) : [],
-      projects: Array.isArray(parsedData.projects) ? parsedData.projects.map((p) => ({
-        name: String(p?.name || "").trim(),
-        description: String(p?.description || "").trim(),
-        technologies: normalizeArray(p?.technologies).map((s) => String(s).trim()).filter(Boolean),
-      })) : [],
-      certifications: normalizeArray(parsedData.certifications).map((s) => String(s).trim()).filter(Boolean),
-      languages: normalizeArray(parsedData.languages).map((s) => String(s).trim()).filter(Boolean),
-      rawText: fallbackRawText,
-    };
-
-    // Return the structured resume data
-    return Response.json({
+    return NextResponse.json({
       success: true,
-      data: normalized
+      data: parsedData,
+      message: "Resume parsed successfully",
     });
-
   } catch (error) {
-    console.error('Gemini PDF processing error:', error);
-    return new Response(`Gemini PDF processing error: ${error.message}`, { status: 500 });
+    console.error("Gemini parse error:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Failed to parse resume",
+        details: error.message,
+      },
+      { status: 500 },
+    );
   }
 }
+
+// Increase body size limit for file uploads
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: "10mb",
+    },
+  },
+};

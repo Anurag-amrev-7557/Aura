@@ -13,6 +13,7 @@
     "test:ci": "jest --ci --coverage --watchAll=false"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@tanstack/react-query": "^5.90.2",
     "bcryptjs": "^2.4.3",
     "clsx": "^2.1.1",

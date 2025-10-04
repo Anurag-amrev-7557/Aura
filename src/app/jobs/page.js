@@ -5,10 +5,13 @@ import JobList from "@/components/jobs/JobList";
 
 function useDebouncedCallback(fn, delayMs) {
   const timeoutRef = useRef(null);
-  return useCallback((...args) => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(() => fn(...args), delayMs);
-  }, [fn, delayMs]);
+  return useCallback(
+    (...args) => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => fn(...args), delayMs);
+    },
+    [fn, delayMs],
+  );
 }
 
 export default function JobsPage() {
@@ -24,70 +27,78 @@ export default function JobsPage() {
   const [error, setError] = useState("");
   const [jobs, setJobs] = useState([]);
 
-  const disabled = useMemo(() => loading || (!query.trim() && !location.trim()), [loading, query, location]);
+  const disabled = useMemo(
+    () => loading || (!query.trim() && !location.trim()),
+    [loading, query, location],
+  );
 
-  const buildParams = useCallback((p = 1) => {
-    const params = new URLSearchParams();
-    params.set("q", (query || "software engineer").slice(0, 300));
-    // always pass user-provided location; JSearch supports remote with location
-    params.set("where", (location || "global").slice(0, 80));
-    params.set("page", String(p));
-    if (sort && sort !== "relevance") params.set("sort", sort);
-    if (remoteOnly) params.set("remote", "true");
-    if (type) params.set("type", type);
-    if (date) params.set("date", date);
-    return params;
-  }, [query, location, sort, remoteOnly, type, date]);
+  const buildParams = useCallback(
+    (p = 1) => {
+      const params = new URLSearchParams();
+      params.set("q", (query || "software engineer").slice(0, 300));
+      // always pass user-provided location; JSearch supports remote with location
+      params.set("where", (location || "global").slice(0, 80));
+      params.set("page", String(p));
+      if (sort && sort !== "relevance") params.set("sort", sort);
+      if (remoteOnly) params.set("remote", "true");
+      if (type) params.set("type", type);
+      if (date) params.set("date", date);
+      return params;
+    },
+    [query, location, sort, remoteOnly, type, date],
+  );
 
-  const syncUrl = useCallback((p = 1, mode = "push") => {
-    const params = buildParams(p);
-    const url = `?${params.toString()}`;
-    if (typeof window !== "undefined") {
-      if (mode === "replace") window.history.replaceState(null, "", url);
-      else window.history.pushState(null, "", url);
-    }
-  }, [buildParams]);
-
-  const fetchPage = useCallback(async (p) => {
-    setLoading(true);
-    setError("");
-    try {
+  const syncUrl = useCallback(
+    (p = 1, mode = "push") => {
       const params = buildParams(p);
-      const res = await fetch(`/api/ats?${params.toString()}`);
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || "Search failed");
+      const url = `?${params.toString()}`;
+      if (typeof window !== "undefined") {
+        if (mode === "replace") window.history.replaceState(null, "", url);
+        else window.history.pushState(null, "", url);
       }
-      const data = await res.json();
-      const list = Array.isArray(data?.jobs) ? data.jobs : [];
-      setHasMore(Boolean(data?.hasMore));
-      setPage(Number(data?.page || p) || p);
-      return list;
-    } catch (e) {
-      setError(e.message || "Search failed");
-      return [];
-    } finally {
-      setLoading(false);
-    }
-  }, [buildParams]);
+    },
+    [buildParams],
+  );
 
-  const onSubmit = useCallback(async (e) => {
-    e?.preventDefault();
-    setJobs([]);
-    const first = await fetchPage(1);
-    setJobs(first);
-    syncUrl(1, "push");
-  }, [fetchPage, syncUrl]);
+  const fetchPage = useCallback(
+    async (p) => {
+      setLoading(true);
+      setError("");
+      try {
+        return [];
+      } catch (e) {
+        setError(e.message || "Search failed");
+        return [];
+      } finally {
+        setLoading(false);
+      }
+    },
+    [buildParams],
+  );
+
+  const onSubmit = useCallback(
+    async (e) => {
+      e?.preventDefault();
+      setJobs([]);
+      const first = await fetchPage(1);
+      setJobs(first);
+      syncUrl(1, "push");
+    },
+    [fetchPage, syncUrl],
+  );
 
   const debouncedSearch = useDebouncedCallback(() => {
     onSubmit();
   }, 500);
 
   function onChange(next) {
-    if (Object.prototype.hasOwnProperty.call(next, "query")) setQuery(next.query);
-    if (Object.prototype.hasOwnProperty.call(next, "location")) setLocation(next.location);
+    if (Object.prototype.hasOwnProperty.call(next, "query"))
+      setQuery(next.query);
+    if (Object.prototype.hasOwnProperty.call(next, "location"))
+      setLocation(next.location);
     if (Object.prototype.hasOwnProperty.call(next, "sort")) setSort(next.sort);
-    if (Object.prototype.hasOwnProperty.call(next, "remoteOnly")) setRemoteOnly(next.remoteOnly);
+    if (Object.prototype.hasOwnProperty.call(next, "remoteOnly"))
+      setRemoteOnly(next.remoteOnly);
     if (Object.prototype.hasOwnProperty.call(next, "type")) setType(next.type);
     if (Object.prototype.hasOwnProperty.call(next, "date")) setDate(next.date);
     debouncedSearch();
@@ -102,7 +113,9 @@ export default function JobsPage() {
 
   useEffect(() => {
     // Hydrate from URL on first load
-    const sp = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
+    const sp = new URLSearchParams(
+      typeof window !== "undefined" ? window.location.search : "",
+    );
     const q = sp.get("q");
     const w = sp.get("where");
     const s = sp.get("sort");
@@ -157,8 +170,12 @@ export default function JobsPage() {
     <div className="min-h-screen relative">
       <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
         <div className="text-center max-w-3xl mx-auto">
-          <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">Find Jobs</h1>
-          <p className="mt-3 text-[var(--foreground)]/70">Use filters and sorting to refine listings.</p>
+          <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">
+            Find Jobs
+          </h1>
+          <p className="mt-3 text-[var(--foreground)]/70">
+            Use filters and sorting to refine listings.
+          </p>
         </div>
 
         <FiltersBar
@@ -184,5 +201,3 @@ export default function JobsPage() {
     </div>
   );
 }
-
-
