@@ -32,12 +32,6 @@ import UserDropdownMenu from "./UserDropdownMenu";
 
 // Performance constants
 const ANIMATION_DURATION = 0.15;
-const SPRING_CONFIG = {
-  stiffness: 380,
-  damping: 32,
-  mass: 0.6,
-  restDelta: 0.001,
-};
 const SCROLL_CONFIG = {
   stiffness: 150,
   damping: 24,
@@ -47,18 +41,6 @@ const SCROLL_CONFIG = {
 const SCROLL_THRESHOLD = 100;
 
 // Animation configs - defined once
-const RING_TRANSITION = {
-  scale: {
-    type: "spring",
-    stiffness: 320,
-    damping: 26,
-    mass: 0.7,
-    restDelta: 0.001,
-  },
-  opacity: { duration: 0.18, ease: [0.4, 0, 0.2, 1] },
-  rotate: { duration: 2.5, ease: "linear" },
-};
-
 const AUTH_BUTTON_TRANSITION = {
   type: "spring",
   stiffness: 420,
@@ -79,11 +61,12 @@ const MENU_ITEM_TRANSITION = {
   ease: [0.4, 0, 0.2, 1],
 };
 
-// Gradient backgrounds - computed once
-const GRADIENT_DARK =
-  "conic-gradient(from 0deg, #1e3a8a, #3b82f6, #60a5fa, #93c5fd, #dbeafe, #93c5fd, #60a5fa, #3b82f6, #1e3a8a)";
-const GRADIENT_LIGHT =
-  "conic-gradient(from 0deg, #dbeafe, #bfdbfe, #93c5fd, #60a5fa, #3b82f6, #60a5fa, #93c5fd, #bfdbfe, #dbeafe)";
+const THEME_ICON_TRANSITION = {
+  type: "spring",
+  stiffness: 380,
+  damping: 28,
+  mass: 0.28,
+};
 
 // Main navigation items configuration
 const navigationItems = Object.freeze([
@@ -109,14 +92,14 @@ const NavLink = memo(({ href, children, Icon, pathname }) => {
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      className="group relative hover:opacity-90 transition-opacity focus:outline-none rounded-md"
+      className="group relative hover:opacity-80 transition-opacity duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 focus:ring-offset-[var(--background)] rounded-md px-1 py-1"
     >
-      <span className="inline-flex items-center gap-2 px-0.5">
+      <span className="inline-flex items-center gap-2">
         {Icon && <Icon size={14} className="opacity-80" />}
         <span>{children}</span>
       </span>
       <span
-        className={`pointer-events-none absolute left-0 right-0 -bottom-1 h-[2px] origin-left rounded-full transition-transform duration-200 ease-out ${
+        className={`pointer-events-none absolute left-0 right-0 -bottom-0.5 h-[2px] origin-left rounded-full transition-all duration-200 ease-out ${
           active
             ? "scale-x-100 bg-[var(--foreground)]/70"
             : "scale-x-0 bg-[var(--foreground)]/40 group-hover:scale-x-100"
@@ -128,7 +111,7 @@ const NavLink = memo(({ href, children, Icon, pathname }) => {
 NavLink.displayName = "NavLink";
 
 // Highly optimized UserAvatar component
-const UserAvatar = memo(({ user, onClick, menuOpen, effectiveTheme }) => {
+const UserAvatar = memo(({ user, onClick, menuOpen }) => {
   const [imageError, setImageError] = useState(false);
 
   const userInitials = useMemo(
@@ -136,78 +119,33 @@ const UserAvatar = memo(({ user, onClick, menuOpen, effectiveTheme }) => {
     [user?.name, user?.email],
   );
 
-  const gradientBackground = useMemo(
-    () => (effectiveTheme === "dark" ? GRADIENT_DARK : GRADIENT_LIGHT),
-    [effectiveTheme],
-  );
-
-  const ringAnimation = useMemo(
-    () => ({
-      scale: menuOpen ? 1 : 0.8,
-      opacity: menuOpen ? 1 : 0,
-      rotate: menuOpen ? 360 : 0,
-    }),
-    [menuOpen],
-  );
-
-  const ringTransition = useMemo(
-    () => ({
-      ...RING_TRANSITION,
-      rotate: {
-        ...RING_TRANSITION.rotate,
-        repeat: menuOpen ? Infinity : 0,
-      },
-    }),
-    [menuOpen],
-  );
-
   const handleImageError = useCallback(() => setImageError(true), []);
   const handleImageLoad = useCallback(() => setImageError(false), []);
 
   return (
-    <div className="relative inline-flex items-center justify-center">
-      <motion.div
-        className="absolute rounded-full pointer-events-none"
-        initial={false}
-        animate={ringAnimation}
-        transition={ringTransition}
-        style={{
-          width: "44px",
-          height: "44px",
-          background: gradientBackground,
-          top: "-11%",
-          left: "-11%",
-          padding: "2px",
-          willChange: menuOpen ? "transform, opacity" : "auto",
-        }}
-      >
-        <div className="w-full h-full rounded-full bg-[var(--background)]" />
-      </motion.div>
-
-      <button
-        type="button"
-        onClick={onClick}
-        className="relative inline-flex cursor-pointer items-center justify-center h-9 w-9 rounded-full border border-[var(--border)] overflow-hidden bg-[var(--muted)] hover:opacity-90 transition-opacity focus:outline-none z-10"
-        aria-haspopup="menu"
-        aria-expanded={menuOpen}
-        aria-label="User menu"
-      >
-        {user?.image && !imageError ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={user.image}
-            alt={user.name || user.email || "User"}
-            className="h-full w-full object-cover"
-            crossOrigin="anonymous"
-            referrerPolicy="no-referrer"
-            onError={handleImageError}
-            onLoad={handleImageLoad}
-          />
-        ) : (
-          <span className="text-xs font-medium">{userInitials}</span>
-        )}
-      </button>
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      className="relative inline-flex cursor-pointer items-center justify-center h-9 w-9 rounded-full overflow-hidden bg-[var(--muted)] hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 focus:ring-offset-[var(--background)]"
+      aria-haspopup="menu"
+      aria-expanded={menuOpen}
+      aria-label="User menu"
+    >
+      {user?.image && !imageError ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={user.image}
+          alt={user.name || user.email || "User"}
+          className="h-full w-full object-cover"
+          crossOrigin="anonymous"
+          referrerPolicy="no-referrer"
+          onError={handleImageError}
+          onLoad={handleImageLoad}
+        />
+      ) : (
+        <span className="text-xs font-medium">{userInitials}</span>
+      )}
+    </button>
   );
 });
 UserAvatar.displayName = "UserAvatar";
@@ -218,20 +156,10 @@ const ThemeToggle = memo(({ theme, setTheme, effectiveTheme, mounted }) => {
     setTheme(effectiveTheme === "dark" ? "light" : "dark");
   }, [effectiveTheme, setTheme]);
 
-  const iconTransition = useMemo(
-    () => ({
-      type: "spring",
-      stiffness: 380,
-      damping: 28,
-      mass: 0.28,
-    }),
-    [],
-  );
-
   return (
     <button
       onClick={toggleTheme}
-      className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] p-2.5 text-sm hover:bg-[var(--muted)] transition-colors focus:outline-none"
+      className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] p-2.5 text-sm hover:bg-[var(--muted)] transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 focus:ring-offset-[var(--background)]"
       aria-label={`Switch to ${effectiveTheme === "dark" ? "light" : "dark"} theme`}
     >
       <span
@@ -246,7 +174,7 @@ const ThemeToggle = memo(({ theme, setTheme, effectiveTheme, mounted }) => {
                 initial={{ rotate: -270, opacity: 0, scale: 0.8 }}
                 animate={{ rotate: 0, opacity: 1, scale: 1 }}
                 exit={{ rotate: 270, opacity: 0, scale: 0.8 }}
-                transition={iconTransition}
+                transition={THEME_ICON_TRANSITION}
                 className="inline-flex"
               >
                 <Sun size={17} />
@@ -257,7 +185,7 @@ const ThemeToggle = memo(({ theme, setTheme, effectiveTheme, mounted }) => {
                 initial={{ rotate: 270, opacity: 0, scale: 0.8 }}
                 animate={{ rotate: 0, opacity: 1, scale: 1 }}
                 exit={{ rotate: -270, opacity: 0, scale: 0.8 }}
-                transition={iconTransition}
+                transition={THEME_ICON_TRANSITION}
                 className="inline-flex"
               >
                 <Moon size={17} />
@@ -291,8 +219,10 @@ function Navbar() {
 
   // Optimized scroll animations
   const { scrollY } = useScroll();
-  const progressRaw = useTransform(scrollY, [0, SCROLL_THRESHOLD], [0, 1]);
-  const progress = useSpring(progressRaw, SCROLL_CONFIG);
+  const progress = useSpring(
+    useTransform(scrollY, [0, SCROLL_THRESHOLD], [0, 1]),
+    SCROLL_CONFIG,
+  );
 
   // Animation values
   const radius = useTransform(progress, [0, 1], [20, 999]);
@@ -303,7 +233,7 @@ function Navbar() {
     () =>
       effectiveTheme === "dark"
         ? ["rgba(0,0,0,0.00)", "rgba(10,10,10,0.85)"]
-        : ["rgba(255,255,255,0.00)", "rgba(255,255,255,0.70)"],
+        : ["rgba(255,255,255,0.0)", "rgba(255,255,255,0.70)"],
     [effectiveTheme],
   );
 
@@ -338,27 +268,15 @@ function Navbar() {
     signOut({ callbackUrl: "/" });
   }, []);
 
-  // Click outside handler
+  // Combined effect for menu interactions (click outside, escape key, body scroll)
   useEffect(() => {
-    if (!menuOpen) return;
+    if (!menuOpen && !mobileOpen) return;
 
     const handleClickOutside = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
+      if (menuOpen && menuRef.current && !menuRef.current.contains(e.target)) {
         setMenuOpen(false);
       }
     };
-
-    // Use capture phase for better performance
-    document.addEventListener("click", handleClickOutside, true);
-
-    return () => {
-      document.removeEventListener("click", handleClickOutside, true);
-    };
-  }, [menuOpen]);
-
-  // Escape key handler
-  useEffect(() => {
-    if (!menuOpen && !mobileOpen) return;
 
     const handleEscape = (e) => {
       if (e.key === "Escape") {
@@ -367,20 +285,21 @@ function Navbar() {
       }
     };
 
+    // Body scroll lock for mobile menu
+    if (mobileOpen) {
+      document.body.style.overflow = "hidden";
+    }
+
+    // Use capture phase for better performance
+    document.addEventListener("click", handleClickOutside, true);
     document.addEventListener("keydown", handleEscape);
 
     return () => {
+      document.removeEventListener("click", handleClickOutside, true);
       document.removeEventListener("keydown", handleEscape);
-    };
-  }, [menuOpen, mobileOpen]);
-
-  // Prevent body scroll when mobile menu is open
-  useEffect(() => {
-    document.body.style.overflow = mobileOpen ? "hidden" : "unset";
-    return () => {
       document.body.style.overflow = "unset";
     };
-  }, [mobileOpen]);
+  }, [menuOpen, mobileOpen]);
 
   // Memoized navigation links
   const desktopNavLinks = useMemo(
@@ -441,10 +360,10 @@ function Navbar() {
               href="/"
               className="flex items-center gap-2 hover:opacity-90 transition-opacity focus:outline-none rounded-md"
             >
-              <div className="h-8 w-8 flex-shrink-0">
+              <div className="h-9 w-9 flex-shrink-0">
                 <svg
-                  width="32"
-                  height="32"
+                  width="36"
+                  height="36"
                   viewBox="0 0 40 40"
                   fill="none"
                   xmlns="http://www.w3.org/2000/svg"
@@ -590,79 +509,53 @@ function Navbar() {
               mounted={mounted}
             />
 
-            {status === "loading" ? (
-              <div
-                className="h-9 w-9 rounded-full bg-[var(--foreground)]/10 animate-pulse"
-                aria-hidden
-              />
-            ) : session?.user ? (
-              <div
-                className="relative flex items-center justify-center"
-                ref={menuRef}
-              >
-                <UserAvatar
-                  user={session.user}
-                  onClick={handleMenuToggle}
-                  menuOpen={menuOpen}
-                  effectiveTheme={effectiveTheme}
-                />
+            <AnimatePresence mode="wait">
+              {status === "loading" ? null : session?.user ? (
+                <div
+                  key="user-menu"
+                  className="relative flex items-center justify-center"
+                  ref={menuRef}
+                >
+                  <UserAvatar
+                    user={session.user}
+                    onClick={handleMenuToggle}
+                    menuOpen={menuOpen}
+                  />
 
-                <AnimatePresence mode="wait">
-                  {menuOpen && (
-                    <UserDropdownMenu
-                      session={session}
-                      setMenuOpen={setMenuOpen}
-                      handleSignOut={handleSignOut}
-                    />
-                  )}
-                </AnimatePresence>
-              </div>
-            ) : (
-              <AnimatePresence mode="wait">
+                  <AnimatePresence mode="wait">
+                    {menuOpen && (
+                      <UserDropdownMenu
+                        session={session}
+                        setMenuOpen={setMenuOpen}
+                        handleSignOut={handleSignOut}
+                      />
+                    )}
+                  </AnimatePresence>
+                </div>
+              ) : (
                 <motion.div
                   key="auth-buttons"
-                  initial={{ opacity: 0, scale: 0.9, x: 20 }}
-                  animate={{ opacity: 1, scale: 1, x: 0 }}
-                  exit={{ opacity: 0, scale: 0.9, x: 20 }}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
                   transition={AUTH_BUTTON_TRANSITION}
                   className="flex items-center gap-3"
                 >
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{
-                      delay: 0.1,
-                      duration: 0.3,
-                      ease: [0.4, 0, 0.2, 1],
-                    }}
+                  <Link
+                    href="/login"
+                    className="text-sm transition-opacity hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 focus:ring-offset-[var(--background)] rounded-md px-2 py-1"
                   >
-                    <Link
-                      href="/login"
-                      className="text-sm transition-opacity hover:opacity-80 focus:outline-none rounded-md"
-                    >
-                      Log in
-                    </Link>
-                  </motion.div>
-                  <motion.div
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{
-                      delay: 0.2,
-                      duration: 0.3,
-                      ease: [0.4, 0, 0.2, 1],
-                      scale: { type: "spring", stiffness: 300, damping: 20 },
-                    }}
+                    Log in
+                  </Link>
+                  <Link
+                    href="/signup"
+                    className="inline-flex items-center gap-2 rounded-full bg-black text-white px-4 py-2 text-sm hover:opacity-90 transition-opacity dark:bg-white dark:text-black focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-[var(--background)]"
                   >
-                    <Link
-                      href="/signup"
-                      className="inline-flex items-center gap-2 rounded-full bg-black text-white px-4 py-2 text-sm hover:opacity-90 transition-opacity dark:bg-white dark:text-black focus:outline-none"
-                    >
-                      Sign up <ArrowUpRight size={16} />
-                    </Link>
-                  </motion.div>
+                    Sign up <ArrowUpRight size={16} />
+                  </Link>
                 </motion.div>
-              </AnimatePresence>
-            )}
+              )}
+            </AnimatePresence>
           </div>
         </motion.div>
 
@@ -731,7 +624,7 @@ function Navbar() {
 
                 {/* Mobile auth section */}
                 <div className="p-2">
-                  {status === "authenticated" ? (
+                  {session?.user ? (
                     <div className="space-y-1">
                       {/* User info in mobile */}
                       <div className="px-3 py-3 bg-[var(--muted)]/30 rounded-xl mb-3">
@@ -780,41 +673,21 @@ function Navbar() {
                       </button>
                     </div>
                   ) : (
-                    <div className="space-y-1">
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.05, ...MENU_ITEM_TRANSITION }}
+                    <div className="space-y-2">
+                      <Link
+                        onClick={handleMobileMenuClose}
+                        href="/login"
+                        className="block px-3 py-2.5 rounded-md hover:bg-[var(--muted)] transition-colors focus:outline-none"
                       >
-                        <Link
-                          onClick={handleMobileMenuClose}
-                          href="/login"
-                          className="block px-3 py-2 rounded-md hover:bg-[var(--muted)] transition-colors focus:outline-none"
-                        >
-                          Log in
-                        </Link>
-                      </motion.div>
-                      <motion.div
-                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        transition={{
-                          delay: 0.1,
-                          ...MENU_ITEM_TRANSITION,
-                          scale: {
-                            type: "spring",
-                            stiffness: 320,
-                            damping: 22,
-                          },
-                        }}
+                        Log in
+                      </Link>
+                      <Link
+                        onClick={handleMobileMenuClose}
+                        href="/signup"
+                        className="inline-flex items-center gap-2 rounded-full bg-black text-white px-4 py-2 text-sm hover:opacity-90 dark:bg-white dark:text-black transition-opacity focus:outline-none"
                       >
-                        <Link
-                          onClick={handleMobileMenuClose}
-                          href="/signup"
-                          className="mt-1 inline-flex items-center gap-2 rounded-full bg-black text-white px-4 py-2 text-sm hover:opacity-90 dark:bg-white dark:text-black transition-opacity focus:outline-none"
-                        >
-                          Sign up <ArrowUpRight size={16} />
-                        </Link>
-                      </motion.div>
+                        Sign up <ArrowUpRight size={16} />
+                      </Link>
                     </div>
                   )}
                 </div>

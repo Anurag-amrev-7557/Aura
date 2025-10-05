@@ -34,15 +34,15 @@ const menuItems = Object.freeze([
 // Animation constants
 const DROPDOWN_TRANSITION = {
   type: "spring",
-  stiffness: 400,
-  damping: 34,
-  mass: 0.55,
-  opacity: { duration: 0.15 },
-  filter: { duration: 0.1 },
+  stiffness: 450,
+  damping: 32,
+  mass: 0.5,
+  restDelta: 0.001,
 };
 
-const MENU_ITEM_BASE_DELAY = 0.05;
-const MENU_ITEM_DELAY_INCREMENT = 0.04;
+const OPACITY_TRANSITION = { duration: 0.12, ease: [0.4, 0, 0.2, 1] };
+const MENU_ITEM_BASE_DELAY = 0.04;
+const MENU_ITEM_DELAY_INCREMENT = 0.03;
 
 const UserDropdownMenu = memo(function UserDropdownMenu({
   session,
@@ -65,44 +65,33 @@ const UserDropdownMenu = memo(function UserDropdownMenu({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.1 }}
+        transition={OPACITY_TRANSITION}
         className="fixed inset-0 z-40"
         onClick={handleClose}
+        aria-hidden="true"
       />
       {/* Dropdown menu */}
       <motion.div
         role="menu"
-        initial={{
-          opacity: 0,
-          scale: 0.85,
-          y: -8,
-          filter: "blur(4px)",
+        initial={{ opacity: 0, scale: 0.92, y: -6 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.92, y: -6 }}
+        transition={{
+          ...DROPDOWN_TRANSITION,
+          opacity: OPACITY_TRANSITION,
         }}
-        animate={{
-          opacity: 1,
-          scale: 1,
-          y: 0,
-          filter: "blur(0px)",
-        }}
-        exit={{
-          opacity: 0,
-          scale: 0.9,
-          y: -4,
-          filter: "blur(2px)",
-        }}
-        transition={DROPDOWN_TRANSITION}
         style={{
           transformOrigin: "top right",
-          willChange: "transform, opacity, filter",
+          willChange: "transform, opacity",
         }}
         className="absolute right-4 top-full mt-6 z-50 w-64 overflow-hidden rounded-2xl border border-[var(--border)]/50 bg-[var(--background)]/95 backdrop-blur-xl shadow-2xl ring-1 ring-black/5 dark:ring-white/10 dark:shadow-black/40"
       >
         {/* User info section */}
         <motion.div
           className="relative px-4 py-4 bg-gradient-to-r from-[var(--muted)]/30 to-[var(--muted)]/10"
-          initial={{ opacity: 0, y: -10 }}
+          initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05, duration: 0.2 }}
+          transition={{ delay: MENU_ITEM_BASE_DELAY, duration: 0.15 }}
         >
           <div className="flex items-center gap-3">
             {userImage && (
