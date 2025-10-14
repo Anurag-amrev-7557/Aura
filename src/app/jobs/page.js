@@ -1,202 +1,127 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import FiltersBar from "@/components/jobs/FiltersBar";
-import JobList from "@/components/jobs/JobList";
-
-function useDebouncedCallback(fn, delayMs) {
-  const timeoutRef = useRef(null);
-  return useCallback(
-    (...args) => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      timeoutRef.current = setTimeout(() => fn(...args), delayMs);
-    },
-    [fn, delayMs],
-  );
-}
+import { useState } from "react";
+import JobFilters from "@/components/jobs/JobFilters";
+import JobToggle from "@/components/jobs/JobToggle";
+import JobListings from "@/components/jobs/JobListings";
 
 export default function JobsPage() {
-  const [query, setQuery] = useState("");
-  const [location, setLocation] = useState("");
-  const [sort, setSort] = useState("relevance");
-  const [remoteOnly, setRemoteOnly] = useState(false);
-  const [type, setType] = useState("");
-  const [date, setDate] = useState("");
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [jobs, setJobs] = useState([]);
+  const [activeTab, setActiveTab] = useState("current");
+  const [filters, setFilters] = useState({
+    jobType: [],
+    location: [],
+    stipendRange: { min: 0, max: 100000 },
+    durationRange: { min: 0, max: 12 },
+    companySize: [],
+    experienceLevel: [],
+    industry: [],
+    skills: [],
+    workMode: [],
+    datePosted: [],
+    benefits: [],
+  });
+  const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
 
-  const disabled = useMemo(
-    () => loading || (!query.trim() && !location.trim()),
-    [loading, query, location],
-  );
+  const handleFilterChange = (newFilters) => {
+    setFilters(newFilters);
+  };
 
-  const buildParams = useCallback(
-    (p = 1) => {
-      const params = new URLSearchParams();
-      params.set("q", (query || "software engineer").slice(0, 300));
-      // always pass user-provided location; JSearch supports remote with location
-      params.set("where", (location || "global").slice(0, 80));
-      params.set("page", String(p));
-      if (sort && sort !== "relevance") params.set("sort", sort);
-      if (remoteOnly) params.set("remote", "true");
-      if (type) params.set("type", type);
-      if (date) params.set("date", date);
-      return params;
-    },
-    [query, location, sort, remoteOnly, type, date],
-  );
-
-  const syncUrl = useCallback(
-    (p = 1, mode = "push") => {
-      const params = buildParams(p);
-      const url = `?${params.toString()}`;
-      if (typeof window !== "undefined") {
-        if (mode === "replace") window.history.replaceState(null, "", url);
-        else window.history.pushState(null, "", url);
-      }
-    },
-    [buildParams],
-  );
-
-  const fetchPage = useCallback(
-    async (p) => {
-      setLoading(true);
-      setError("");
-      try {
-        return [];
-      } catch (e) {
-        setError(e.message || "Search failed");
-        return [];
-      } finally {
-        setLoading(false);
-      }
-    },
-    [buildParams],
-  );
-
-  const onSubmit = useCallback(
-    async (e) => {
-      e?.preventDefault();
-      setJobs([]);
-      const first = await fetchPage(1);
-      setJobs(first);
-      syncUrl(1, "push");
-    },
-    [fetchPage, syncUrl],
-  );
-
-  const debouncedSearch = useDebouncedCallback(() => {
-    onSubmit();
-  }, 500);
-
-  function onChange(next) {
-    if (Object.prototype.hasOwnProperty.call(next, "query"))
-      setQuery(next.query);
-    if (Object.prototype.hasOwnProperty.call(next, "location"))
-      setLocation(next.location);
-    if (Object.prototype.hasOwnProperty.call(next, "sort")) setSort(next.sort);
-    if (Object.prototype.hasOwnProperty.call(next, "remoteOnly"))
-      setRemoteOnly(next.remoteOnly);
-    if (Object.prototype.hasOwnProperty.call(next, "type")) setType(next.type);
-    if (Object.prototype.hasOwnProperty.call(next, "date")) setDate(next.date);
-    debouncedSearch();
-  }
-
-  async function onLoadMore() {
-    const nextPage = page + 1;
-    const more = await fetchPage(nextPage);
-    if (more.length) setJobs((prev) => [...prev, ...more]);
-    syncUrl(nextPage, "push");
-  }
-
-  useEffect(() => {
-    // Hydrate from URL on first load
-    const sp = new URLSearchParams(
-      typeof window !== "undefined" ? window.location.search : "",
-    );
-    const q = sp.get("q");
-    const w = sp.get("where");
-    const s = sp.get("sort");
-    const r = sp.get("remote");
-    const t = sp.get("type");
-    const d = sp.get("date");
-    const p = parseInt(sp.get("page") || "1", 10) || 1;
-    if (q) setQuery(q);
-    if (w) setLocation(w);
-    if (s) setSort(s);
-    if (r === "true") setRemoteOnly(true);
-    if (t) setType(t);
-    if (d) setDate(d);
-    (async () => {
-      const first = await fetchPage(p);
-      setJobs(first);
-      syncUrl(p, "replace");
-    })();
-
-    function onPopState() {
-      const sp2 = new URLSearchParams(window.location.search);
-      const q2 = sp2.get("q") || "";
-      const w2 = sp2.get("where") || "";
-      const s2 = sp2.get("sort") || "relevance";
-      const r2 = sp2.get("remote") === "true";
-      const t2 = sp2.get("type") || "";
-      const d2 = sp2.get("date") || "";
-      const p2 = parseInt(sp2.get("page") || "1", 10) || 1;
-      setQuery(q2);
-      setLocation(w2);
-      setSort(s2);
-      setRemoteOnly(r2);
-      setType(t2);
-      setDate(d2);
-      (async () => {
-        const list = await fetchPage(p2);
-        setJobs(list);
-      })();
-    }
-    if (typeof window !== "undefined") {
-      window.addEventListener("popstate", onPopState);
-    }
-    return () => {
-      if (typeof window !== "undefined") {
-        window.removeEventListener("popstate", onPopState);
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+  };
 
   return (
-    <div className="min-h-screen relative">
-      <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
-        <div className="text-center max-w-3xl mx-auto">
-          <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">
-            Find Jobs
+    <div className="min-h-screen relative bg-[var(--background)]">
+      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-3">
+            Discover Your Next Opportunity
           </h1>
-          <p className="mt-3 text-[var(--foreground)]/70">
-            Use filters and sorting to refine listings.
+          <p className="text-[var(--foreground)]/70 text-base sm:text-lg">
+            Browse through hundreds of job openings and find the perfect match
+            for your skills
           </p>
         </div>
 
-        <FiltersBar
-          query={query}
-          location={location}
-          sort={sort}
-          remoteOnly={remoteOnly}
-          type={type}
-          date={date}
-          loading={loading}
-          onChange={onChange}
-          onSubmit={onSubmit}
-        />
+        {/* Mobile Filter Button */}
+        <div className="flex items-center justify-end mb-6 lg:hidden">
+          <button
+            onClick={() => setIsMobileFiltersOpen(!isMobileFiltersOpen)}
+            className="inline-flex items-center gap-2 px-4 py-2 border border-[var(--border)] rounded-full hover:bg-[var(--muted)] transition-colors"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+              />
+            </svg>
+            <span className="text-sm font-medium">Filters</span>
+          </button>
+        </div>
 
-        <JobList
-          jobs={jobs}
-          loading={loading}
-          error={error}
-          hasMore={hasMore}
-          onLoadMore={onLoadMore}
-        />
+        {/* Two Column Layout */}
+        <div className="flex flex-col lg:flex-row gap-6 relative">
+          {/* Desktop Filters - Hidden on Mobile */}
+          <div className="hidden lg:block">
+            <JobFilters
+              filters={filters}
+              onFilterChange={handleFilterChange}
+              activeTab={activeTab}
+              onTabChange={handleTabChange}
+            />
+          </div>
+
+          {/* Mobile Filters - Shown as Modal/Drawer */}
+          {isMobileFiltersOpen && (
+            <div
+              className="lg:hidden fixed inset-0 z-50 bg-black/50"
+              onClick={() => setIsMobileFiltersOpen(false)}
+            >
+              <div
+                className="absolute left-0 top-0 bottom-0 w-80 bg-[var(--background)] overflow-y-auto p-6"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-lg font-semibold">Filters</h2>
+                  <button
+                    onClick={() => setIsMobileFiltersOpen(false)}
+                    className="p-2 hover:bg-[var(--muted)] rounded-full"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+                <JobFilters
+                  filters={filters}
+                  onFilterChange={handleFilterChange}
+                  activeTab={activeTab}
+                  onTabChange={handleTabChange}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Job Listings */}
+          <JobListings activeTab={activeTab} filters={filters} />
+        </div>
       </main>
     </div>
   );

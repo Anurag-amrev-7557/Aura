@@ -13,7 +13,7 @@ import {
   LogOut,
   Menu as MenuIcon,
   X as CloseIcon,
-  Briefcase,
+  Calendar,
   CreditCard,
   Info,
   Mail,
@@ -70,7 +70,7 @@ const THEME_ICON_TRANSITION = {
 
 // Main navigation items configuration
 const navigationItems = Object.freeze([
-  { href: "/jobs", label: "Jobs", icon: Briefcase },
+  { href: "/jobs", label: "Jobs", icon: Calendar },
   { href: "/ats", label: "ATS", icon: FileText },
   { href: "/pricing", label: "Pricing", icon: CreditCard },
   { href: "/about", label: "About", icon: Info },
