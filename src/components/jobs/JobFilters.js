@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import JobToggle from "./JobToggle";
 
 export default function JobFilters({
@@ -8,6 +8,28 @@ export default function JobFilters({
   activeTab,
   onTabChange,
 }) {
+  // Local state for range sliders to avoid losing focus while dragging
+  const [localStipend, setLocalStipend] = useState({
+    min: filters.stipendRange?.min ?? 0,
+    max: filters.stipendRange?.max ?? 100000,
+  });
+  const [localDuration, setLocalDuration] = useState({
+    min: filters.durationRange?.min ?? 0,
+    max: filters.durationRange?.max ?? 12,
+  });
+
+  // Keep local state in sync when filters prop changes externally
+  useEffect(() => {
+    setLocalStipend({
+      min: filters.stipendRange?.min ?? 0,
+      max: filters.stipendRange?.max ?? 100000,
+    });
+    setLocalDuration({
+      min: filters.durationRange?.min ?? 0,
+      max: filters.durationRange?.max ?? 12,
+    });
+  }, [filters.stipendRange?.min, filters.stipendRange?.max, filters.durationRange?.min, filters.durationRange?.max]);
+
   const [expandedSections, setExpandedSections] = useState({
     jobType: true,
     location: true,
@@ -182,12 +204,22 @@ export default function JobFilters({
                 type="range"
                 min="0"
                 max="100000"
-                value={filters.stipendRange?.min || 0}
+                value={localStipend.min}
                 onChange={(e) =>
+                  setLocalStipend((s) => ({ ...s, min: parseInt(e.target.value) }))
+                }
+                onPointerUp={() =>
                   handleRangeChange(
                     "stipendRange",
-                    parseInt(e.target.value),
-                    filters.stipendRange?.max || 100000,
+                    localStipend.min,
+                    localStipend.max,
+                  )
+                }
+                onBlur={() =>
+                  handleRangeChange(
+                    "stipendRange",
+                    localStipend.min,
+                    localStipend.max,
                   )
                 }
                 className="w-full"
@@ -206,12 +238,22 @@ export default function JobFilters({
                 type="range"
                 min="0"
                 max="100000"
-                value={filters.stipendRange?.max || 100000}
+                value={localStipend.max}
                 onChange={(e) =>
+                  setLocalStipend((s) => ({ ...s, max: parseInt(e.target.value) }))
+                }
+                onPointerUp={() =>
                   handleRangeChange(
                     "stipendRange",
-                    filters.stipendRange?.min || 0,
-                    parseInt(e.target.value),
+                    localStipend.min,
+                    localStipend.max,
+                  )
+                }
+                onBlur={() =>
+                  handleRangeChange(
+                    "stipendRange",
+                    localStipend.min,
+                    localStipend.max,
                   )
                 }
                 className="w-full"
@@ -242,12 +284,22 @@ export default function JobFilters({
                 min="0"
                 max="12"
                 step="1"
-                value={filters.durationRange?.min || 0}
+                value={localDuration.min}
                 onChange={(e) =>
+                  setLocalDuration((d) => ({ ...d, min: parseInt(e.target.value) }))
+                }
+                onPointerUp={() =>
                   handleRangeChange(
                     "durationRange",
-                    parseInt(e.target.value),
-                    filters.durationRange?.max || 12,
+                    localDuration.min,
+                    localDuration.max,
+                  )
+                }
+                onBlur={() =>
+                  handleRangeChange(
+                    "durationRange",
+                    localDuration.min,
+                    localDuration.max,
                   )
                 }
                 className="w-full"
@@ -270,12 +322,22 @@ export default function JobFilters({
                 min="0"
                 max="12"
                 step="1"
-                value={filters.durationRange?.max || 12}
+                value={localDuration.max}
                 onChange={(e) =>
+                  setLocalDuration((d) => ({ ...d, max: parseInt(e.target.value) }))
+                }
+                onPointerUp={() =>
                   handleRangeChange(
                     "durationRange",
-                    filters.durationRange?.min || 0,
-                    parseInt(e.target.value),
+                    localDuration.min,
+                    localDuration.max,
+                  )
+                }
+                onBlur={() =>
+                  handleRangeChange(
+                    "durationRange",
+                    localDuration.min,
+                    localDuration.max,
                   )
                 }
                 className="w-full"

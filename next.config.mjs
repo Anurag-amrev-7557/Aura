@@ -23,6 +23,12 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'remotive.com',
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
   webpack: (config) => {

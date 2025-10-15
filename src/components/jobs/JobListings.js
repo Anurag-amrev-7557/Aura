@@ -148,22 +148,189 @@ const mockJobs = {
   ],
 };
 
-export default function JobListings({ activeTab, filters }) {
+export default function JobListings({ activeTab, filters, searchQuery = "", sortSelection = "relevance" }) {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [sortBy, setSortBy] = useState("recent");
+  const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
+  const perPage = 10;
+  const [total, setTotal] = useState(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  // sortSelection is passed from parent and maps to local sortBy
+  const mapSelectionToSortBy = (sel) => {
+    switch (sel) {
+      case "highest":
+        return "stipend-high";
+      case "lowest":
+        return "stipend-low";
+      case "newest":
+        return "recent";
+      case "relevance":
+      default:
+        return "recent";
+    }
+  };
+  const sortBy = mapSelectionToSortBy(sortSelection);
+
+  function normalizeJobType(v) {
+    if (!v) return '';
+    const s = String(v).trim().toLowerCase();
+    // remove non-word characters
+    const cleaned = s.replace(/[^a-z0-9]+/g, '');
+    if (cleaned.startsWith('full')) return 'fulltime';
+    if (cleaned.startsWith('part')) return 'parttime';
+    if (cleaned.includes('intern')) return 'internship';
+    if (cleaned.includes('contract')) return 'contract';
+    return cleaned; // fallback, JobCard will attempt to render label
+  }
+
+  // Debounce searchQuery to avoid too many requests
+  const [debouncedQuery, setDebouncedQuery] = useState(searchQuery);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(searchQuery), 250);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  // Reset pagination when search, filters or tab change
+  useEffect(() => {
+    setPage(1);
+    setTotal(null);
+  }, [debouncedQuery, JSON.stringify(filters), activeTab]);
 
   useEffect(() => {
-    // Simulate API call
-    setLoading(true);
-    setTimeout(() => {
-      const jobList = mockJobs[activeTab] || [];
-      const filteredJobs = applyFilters(jobList, filters);
-      const sortedJobs = sortJobs(filteredJobs, sortBy);
-      setJobs(sortedJobs);
-      setLoading(false);
-    }, 300);
-  }, [activeTab, filters, sortBy]);
+    let aborted = false;
+    const controller = new AbortController();
+
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const qParam = debouncedQuery ? `q=${encodeURIComponent(debouncedQuery)}` : "";
+        const src = "remotive"; // default source; could be exposed via props
+        const url = `/api/external-jobs?${qParam}${qParam ? "&" : ""}page=${page}&perPage=${perPage}&source=${src}`;
+        const res = await fetch(url, { signal: controller.signal });
+        if (!res.ok) throw new Error(`Search proxy error: ${res.status}`);
+        const json = await res.json();
+        const hits = Array.isArray(json.hits) ? json.hits : [];
+
+        // Map external hits to UI job shape expected by JobCard
+        const mapped = hits.map((h) => {
+          const description = (h.description || "")
+            .replace(/<[^>]*>/g, "")
+            .trim();
+          const companyName = (h.company && h.company.name) || (h.raw && (h.raw.company_name || h.raw.company?.name)) || "";
+          // prefer proxy URL provided by the API (companyLogoProxy) so client can directly request the proxied image
+          const companyLogo = h.companyLogoProxy || (h.company && h.company.logo) || (h.raw && (h.raw.company_logo || null)) || null;
+          const locationStr = (h.location && (h.location.city || h.location.region || h.location.country)) || (h.raw && (h.raw.candidate_required_location || "")) || "";
+
+          const postedDate = h.posted_at ? timeAgo(h.posted_at) : (h.raw && h.raw.publication_date) || "";
+
+          return {
+            id: h.id,
+            title: h.title || "",
+            companyName,
+            companyLogo,
+            jobType: normalizeJobType(h.employment_type || (h.raw && h.raw.job_type) || (h.remote ? "fulltime" : "fulltime") || ""),
+            location: locationStr,
+            // robust stipend extraction: try multiple possible fields, fallback to null if unknown
+            stipend: (function() {
+              if (h.stipend) return h.stipend;
+              if (h.raw) {
+                const r = h.raw;
+                return r.salary || r.salary_min || r.salary_max || r.remuneration || r.compensation || r.stipend || null;
+              }
+              return null;
+            })(),
+            duration: null,
+            skills: Array.isArray(h.skills) ? h.skills : (h.raw && h.raw.tags) || [],
+            description,
+            postedDate,
+            expectedStartDate: null,
+            isBookmarked: false,
+            raw: h
+          };
+        });
+
+        if (!aborted) {
+          // append or replace depending on page
+          const searched = applySearch(mapped, debouncedQuery);
+          const filteredJobs = applyFilters(searched, filters);
+          const sortedJobs = sortJobs(filteredJobs, sortBy);
+
+          setTotal(typeof json.total === 'number' ? json.total : (json.total ? Number(json.total) : null));
+
+          setJobs((prev) => {
+            if (page > 1) {
+              // append and dedupe by id
+              const combined = [...prev, ...sortedJobs];
+              const seen = new Set();
+              return combined.filter((j) => {
+                if (seen.has(j.id)) return false;
+                seen.add(j.id);
+                return true;
+              });
+            }
+            return sortedJobs;
+          });
+        }
+      } catch (err) {
+        if (!aborted) {
+          console.error('JobListings fetch error', err);
+          setError(err.message || 'Failed to load jobs');
+          // fallback to existing mock data to keep UI functional
+          const jobList = mockJobs[activeTab] || [];
+          const searched = applySearch(jobList, debouncedQuery);
+          const filteredJobs = applyFilters(searched, filters);
+          const sortedJobs = sortJobs(filteredJobs, sortBy);
+          setJobs(sortedJobs);
+        }
+      } finally {
+        if (!aborted) {
+          setLoading(false);
+          setLoadingMore(false);
+        }
+      }
+    }
+
+    load();
+    return () => {
+      aborted = true;
+      controller.abort();
+    };
+  }, [activeTab, filters, sortBy, debouncedQuery, page]);
+
+  const applySearch = (jobList, query) => {
+    const q = (query || "").trim().toLowerCase();
+    if (!q) return jobList;
+    return jobList.filter((job) => {
+      if (job.title?.toLowerCase().includes(q)) return true;
+      if (job.companyName?.toLowerCase().includes(q)) return true;
+      if (
+        Array.isArray(job.skills) &&
+        job.skills.some((s) => s.toLowerCase().includes(q))
+      )
+        return true;
+      return false;
+    });
+  };
+
+  function timeAgo(iso) {
+    try {
+      const d = new Date(iso);
+      const diff = Date.now() - d.getTime();
+      const seconds = Math.floor(diff / 1000);
+      const minutes = Math.floor(seconds / 60);
+      const hours = Math.floor(minutes / 60);
+      const days = Math.floor(hours / 24);
+      if (days > 1) return `${days} days ago`;
+      if (days === 1) return `1 day ago`;
+      if (hours >= 1) return `${hours}h ago`;
+      if (minutes >= 1) return `${minutes}m ago`;
+      return `just now`;
+    } catch (e) {
+      return iso;
+    }
+  }
 
   const applyFilters = (jobList, filters) => {
     return jobList.filter((job) => {
@@ -222,30 +389,6 @@ export default function JobListings({ activeTab, filters }) {
 
   return (
     <div className="flex-1">
-      {/* Sort and Count Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="text-sm text-[var(--foreground)]/70">
-          <span className="font-semibold text-[var(--foreground)]">
-            {jobs.length}
-          </span>{" "}
-          jobs found
-        </div>
-        <div className="flex items-center gap-2">
-          <label htmlFor="sort" className="text-sm text-[var(--foreground)]/70">
-            Sort by:
-          </label>
-          <select
-            id="sort"
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="px-3 py-2 border border-[var(--border)] rounded-lg bg-[var(--background)] text-sm focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
-          >
-            <option value="recent">Most Recent</option>
-            <option value="stipend-high">Highest Stipend</option>
-            <option value="stipend-low">Lowest Stipend</option>
-          </select>
-        </div>
-      </div>
 
       {/* Loading State */}
       {loading && (
@@ -281,6 +424,22 @@ export default function JobListings({ activeTab, filters }) {
               isUpcoming={activeTab === "upcoming"}
             />
           ))}
+        </div>
+      )}
+
+      {/* Load more */}
+      {!loading && total !== null && jobs.length < total && (
+        <div className="pt-6 text-center">
+          <button
+            onClick={() => {
+              setLoadingMore(true);
+              setPage((p) => p + 1);
+            }}
+            className="px-4 py-2 bg-[var(--accent)] text-white rounded-md"
+            aria-label="Load more jobs"
+          >
+            {loadingMore ? 'Loading...' : 'Load more'}
+          </button>
         </div>
       )}
 

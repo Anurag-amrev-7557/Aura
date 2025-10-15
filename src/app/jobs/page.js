@@ -1,8 +1,8 @@
 "use client";
 import { useState } from "react";
 import JobFilters from "@/components/jobs/JobFilters";
-import JobToggle from "@/components/jobs/JobToggle";
 import JobListings from "@/components/jobs/JobListings";
+import SortDropdown from "@/components/jobs/SortDropdown";
 
 export default function JobsPage() {
   const [activeTab, setActiveTab] = useState("current");
@@ -20,6 +20,8 @@ export default function JobsPage() {
     benefits: [],
   });
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortSelection, setSortSelection] = useState("relevance");
 
   const handleFilterChange = (newFilters) => {
     setFilters(newFilters);
@@ -31,16 +33,63 @@ export default function JobsPage() {
 
   return (
     <div className="min-h-screen relative bg-[var(--background)]">
-      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-        {/* Header */}
+      <main className="mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+        {/* Header - Minimalist, modern, detailed */}
         <div className="mb-8">
-          <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight mb-3">
-            Discover Your Next Opportunity
-          </h1>
-          <p className="text-[var(--foreground)]/70 text-base sm:text-lg">
-            Browse through hundreds of job openings and find the perfect match
-            for your skills
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="min-w-0">
+              <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight leading-tight">
+                Find your next role
+              </h1>
+              <p className="mt-1 text-[var(--foreground)]/60 text-sm sm:text-base">
+                Curated listings updated daily — filter by role, location, company or skills.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {/* Job count (placeholder number) and sort control */}
+              <div className="hidden sm:flex items-center gap-4 text-sm text-[var(--foreground)]/70">
+                <span className="font-medium">1,254</span>
+                <span className="text-[var(--foreground)]/40">results</span>
+              </div>
+
+              <label className="sr-only" htmlFor="job-search">Search jobs</label>
+              <div className="relative">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--foreground)]/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 100-15 7.5 7.5 0 000 15z" />
+                </svg>
+                  <input
+                    id="job-search"
+                    type="search"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search job titles, companies, or skills"
+                    className="pl-10 pr-3 py-2 rounded-full border border-[var(--border)] bg-[var(--background)] text-sm w-64 focus:outline-none focus:ring-2 focus:ring-[var(--muted)]"
+                  />
+              </div>
+
+              <div className="hidden sm:block">
+                <SortDropdown
+                  options={[
+                    { value: "relevance", label: "Sort: Relevance" },
+                    { value: "newest", label: "Newest" },
+                    { value: "remote", label: "Remote" },
+                    { value: "highest", label: "Highest stipend" },
+                  ]}
+                  value={sortSelection}
+                  onChange={(v) => setSortSelection(v)}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div className="mt-4 flex items-center justify-between">
+            <div />
+                <div className="flex items-center gap-4">
+              {/* Tabs removed, defaulting to current listings */}
+            </div>
+          </div>
         </div>
 
         {/* Mobile Filter Button */}
@@ -119,8 +168,8 @@ export default function JobsPage() {
             </div>
           )}
 
-          {/* Job Listings */}
-          <JobListings activeTab={activeTab} filters={filters} />
+          {/* Job Listings (controlled by filters toggler) */}
+          <JobListings activeTab={activeTab} filters={filters} searchQuery={searchQuery} sortSelection={sortSelection} />
         </div>
       </main>
     </div>

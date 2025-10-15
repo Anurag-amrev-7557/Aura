@@ -4,6 +4,35 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+function isValidHttpUrl(string) {
+  try {
+    const u = new URL(string);
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch (e) {
+    return false;
+  }
+}
+
+const PROXY_ALLOWED = new Set([
+  'remotive.com',
+  'www.remotive.com',
+  'themuse.com',
+  'www.themuse.com',
+]);
+
+function proxyImageUrl(url, name) {
+  try {
+    // If the url is already a relative proxied path (starts with /api/), return as-is
+    if (typeof url === 'string' && url.startsWith('/api/')) return url;
+    const u = new URL(url);
+    if (!PROXY_ALLOWED.has(u.hostname)) return null;
+    const q = `url=${encodeURIComponent(url)}${name ? `&name=${encodeURIComponent(name)}` : ''}`;
+    return `/api/image-proxy?${q}`;
+  } catch (e) {
+    return null;
+  }
+}
+
 export default function JobCard({ job, isUpcoming = false }) {
   const router = useRouter();
   const [isBookmarked, setIsBookmarked] = useState(job.isBookmarked || false);
@@ -20,6 +49,11 @@ export default function JobCard({ job, isUpcoming = false }) {
   };
 
   const formatStipend = (amount) => {
+    if (amount === null || amount === undefined || amount === 0) return '—';
+    if (typeof amount === 'string') {
+      const n = Number(amount.replace(/[^0-9.-]+/g, ''));
+      if (Number.isFinite(n)) amount = n; else return '—';
+    }
     if (amount >= 100000) {
       return `₹${(amount / 100000).toFixed(1)}L`;
     }
@@ -117,17 +151,37 @@ export default function JobCard({ job, isUpcoming = false }) {
       {/* Company Logo and Header */}
       <div className="flex items-start gap-4 mb-4 pr-10">
         <div className="w-14 h-14 rounded-xl border border-[var(--border)] flex items-center justify-center bg-[var(--muted)] flex-shrink-0 overflow-hidden">
-          {job.companyLogo ? (
-            <Image
-              src={job.companyLogo}
-              alt={`${job.companyName} logo`}
-              width={56}
-              height={56}
-              className="object-cover"
-            />
+          {job.companyLogo && isValidHttpUrl(job.companyLogo) ? (
+            (() => {
+              const prox = proxyImageUrl(job.companyLogo, job.companyName || '');
+              if (prox) {
+                  // Use native <img> for proxied images (proxy may return SVG placeholders)
+                  return (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={prox}
+                      alt={`${job.companyName} logo`}
+                      width={56}
+                      height={56}
+                      className="object-cover"
+                      loading="lazy"
+                    />
+                  );
+                }
+                // if proxy not allowed for this host, still attempt original URL with next/image
+                return (
+                  <Image
+                    src={job.companyLogo}
+                    alt={`${job.companyName} logo`}
+                    width={56}
+                    height={56}
+                    className="object-cover"
+                  />
+                );
+            })()
           ) : (
             <span className="text-xl font-semibold text-[var(--foreground)]/60">
-              {job.companyName.charAt(0)}
+              {job.companyName ? job.companyName.charAt(0) : ""}
             </span>
           )}
         </div>
@@ -171,19 +225,6 @@ export default function JobCard({ job, isUpcoming = false }) {
 
         {/* Stipend */}
         <div className="flex items-center gap-2">
-          <svg
-            className="w-4 h-4 text-[var(--foreground)]/60 flex-shrink-0"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
           <span className="text-sm font-medium text-[var(--foreground)]">
             {formatStipend(job.stipend)}/mo
           </span>
